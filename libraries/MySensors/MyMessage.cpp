@@ -1,3 +1,23 @@
+/**
+ * The MySensors Arduino library handles the wireless radio link and protocol
+ * between your home built sensors/actuators and HA controller of choice.
+ * The sensors forms a self healing radio network with optional repeaters. Each
+ * repeater and gateway builds a routing tables in EEPROM which keeps track of the
+ * network topology allowing messages to be routed to nodes.
+ *
+ * Created by Henrik Ekblad <henrik.ekblad@mysensors.org>
+ * Copyright (C) 2013-2015 Sensnology AB
+ * Full contributor list: https://github.com/mysensors/Arduino/graphs/contributors
+ *
+ * Documentation: http://www.mysensors.org
+ * Support Forum: http://forum.mysensors.org
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ */
+
+
 #include "MyMessage.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,11 +33,9 @@ MyMessage::MyMessage(uint8_t _sensor, uint8_t _type) {
 	type = _type;
 }
 
-
 bool MyMessage::isAck() const {
 	return miGetAck();
 }
-
 
 /* Getters for payload converted to desired form */
 void* MyMessage::getCustom() const {
@@ -42,16 +60,20 @@ char MyMessage::i2h(uint8_t i) const {
 		return 'A' + k - 10;
 }
 
+char* MyMessage::getCustomString(char *buffer) const {
+	for (uint8_t i = 0; i < miGetLength(); i++)
+	{
+		buffer[i * 2] = i2h(data[i] >> 4);
+		buffer[(i * 2) + 1] = i2h(data[i]);
+	}
+	buffer[miGetLength() * 2] = '\0';
+	return buffer;
+}
+
 char* MyMessage::getStream(char *buffer) const {
 	uint8_t cmd = miGetCommand();
 	if ((cmd == C_STREAM) && (buffer != NULL)) {
-		for (uint8_t i = 0; i < miGetLength(); i++)
-		{
-			buffer[i * 2] = i2h(data[i] >> 4);
-			buffer[(i * 2) + 1] = i2h(data[i]);
-		}
-		buffer[miGetLength() * 2] = '\0';
-		return buffer;
+		return getCustomString(buffer);
 	} else {
 		return NULL;
 	}
@@ -73,12 +95,11 @@ char* MyMessage::getString(char *buffer) const {
 		} else if (payloadType == P_LONG32) {
 			ltoa(lValue, buffer, 10);
 		} else if (payloadType == P_ULONG32) {
-		
 			ultoa(ulValue, buffer, 10);
 		} else if (payloadType == P_FLOAT32) {
 			dtostrf(fValue,2,fPrecision,buffer);
 		} else if (payloadType == P_CUSTOM) {
-			return getStream(buffer);
+			return getCustomString(buffer);
 		}
 		return buffer;
 	} else {
@@ -151,7 +172,6 @@ unsigned int MyMessage::getUInt() const {
 
 }
 
-
 MyMessage& MyMessage::setType(uint8_t _type) {
 	type = _type;
 	return *this;
@@ -175,12 +195,11 @@ MyMessage& MyMessage::set(void* value, uint8_t length) {
 	return *this;
 }
 
-
 MyMessage& MyMessage::set(const char* value) {
-	uint8_t length = strlen(value);
+	uint8_t length = min(strlen(value), MAX_PAYLOAD);
 	miSetLength(length);
 	miSetPayloadType(P_STRING);
-	strncpy(data, value, min(length, MAX_PAYLOAD));
+	strncpy(data, value, length);
 	return *this;
 }
 
@@ -190,7 +209,6 @@ MyMessage& MyMessage::set(uint8_t value) {
 	data[0] = value;
 	return *this;
 }
-
 
 MyMessage& MyMessage::set(float value, uint8_t decimals) {
 	miSetLength(5); // 32 bit float + persi
@@ -227,5 +245,3 @@ MyMessage& MyMessage::set(int value) {
 	iValue = value;
 	return *this;
 }
-
-
